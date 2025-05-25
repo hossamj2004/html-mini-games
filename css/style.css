@@ -1,0 +1,58 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+body {
+    font-family: "Press Start 2P", monospace;
+    margin: 0;
+    background-color: #000;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+#game-select-screen {
+    text-align: center;
+}
+
+h1 {
+    color: #00ff00; /* Bright Green */
+    font-size: 2.5em;
+    margin-bottom: 50px;
+}
+
+ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+li {
+    display: block;
+    padding: 15px 30px;
+    margin: 10px 0;
+    border: 2px solid #fff;
+    cursor: pointer;
+    font-size: 1.5em;
+}
+
+li a {
+    text-decoration: none;
+    color: #fff;
+    display: block; /* Make the link fill the li for easier clicking */
+}
+
+li.selected {
+    background-color: #00ff00;
+    color: #000;
+    border-color: #00ff00;
+}
+
+li.selected a {
+    color: #000;
+}
+
+li:not(.selected):hover {
+    background-color: #222;
+    border-color: #888;
+}
