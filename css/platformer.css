@@ -1,0 +1,51 @@
+body {
+    background-color: #000;
+    color: #fff; /* Default text color, though most will be green */
+    font-family: "Press Start 2P", monospace;
+    display: flex;
+    flex-direction: column; /* Align game container and back link vertically */
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+}
+
+#game-container {
+    text-align: center;
+}
+
+#info-bar {
+    display: flex;
+    justify-content: space-between;
+    width: 640px; /* Match canvas width */
+    margin-bottom: 10px;
+    font-family: "Press Start 2P", monospace; /* Ensure font is applied */
+}
+
+#score-display, #lives-display {
+    color: #00ff00; /* Bright Green */
+    font-size: 1em;
+}
+
+#game-canvas {
+    background-color: #333; /* Dark Gray */
+    border: 2px solid #00ff00; /* Bright Green */
+    display: block; /* Remove extra space below canvas */
+}
+
+#back-to-home {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 10px 20px;
+    color: #000;
+    background-color: #00ff00; /* Bright Green */
+    text-decoration: none;
+    border: 2px solid #00ff00;
+    font-size: 1em;
+    font-family: "Press Start 2P", monospace; /* Ensure font is applied */
+}
+
+#back-to-home:hover {
+    background-color: #00cc00; /* Darker green for hover */
+    border-color: #00cc00;
+}
