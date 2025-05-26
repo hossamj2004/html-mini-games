@@ -1,0 +1,109 @@
+/* Basic retro styling for XO (3-Piece Tic-Tac-Toe) */
+body {
+    background-color: #000;
+    color: #fff; /* Default text color */
+    font-family: "Press Start 2P", monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+    image-rendering: pixelated; 
+}
+
+#game-container {
+    text-align: center;
+}
+
+#status-display {
+    margin-bottom: 20px;
+    font-size: 1.2em;
+    color: #00FFFF; /* Light Blue / Cyan */
+    height: 30px; /* Fixed height to prevent layout shift */
+}
+
+#board-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    width: 300px; 
+    height: 300px;
+    border: 3px solid #00FFFF; /* Cyan border for the grid */
+    margin: 0 auto; /* Center the board */
+}
+
+.cell {
+    border: 2px solid #00AAAA; /* Darker Cyan for cell borders */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3em; /* Large font for X/O */
+    cursor: pointer;
+    /* Default color removed, will be set by player-x or player-o class */
+}
+
+.cell.player-x {
+    color: #00FF00; /* Bright Green for X */
+}
+.cell.player-o {
+    color: #FF00FF; /* Bright Magenta for O */
+}
+
+.cell:not(.player-x):not(.player-o):hover {
+    background-color: #2a2a2a; /* A subtle hover for clickable empty cells */
+}
+
+/* Keep existing hover for cells that might have content but are part of general interaction, if needed */
+.cell:hover {
+    background-color: #222; /* This might be too general now, consider removing or adjusting if it conflicts with the specific empty cell hover */
+}
+
+
+#restart-button {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 10px 20px;
+    color: #000;
+    background-color: #00FFFF; /* Cyan */
+    text-decoration: none;
+    border: 2px solid #00FFFF;
+    font-size: 1em;
+    font-family: "Press Start 2P", monospace;
+    cursor: pointer;
+}
+
+#restart-button:hover {
+    background-color: #00CCCC; /* Darker Cyan for hover */
+    border-color: #00CCCC;
+}
+
+#back-to-home {
+    display: inline-block;
+    margin-top: 15px; /* Space between restart and back button */
+    padding: 10px 20px;
+    color: #000;
+    background-color: #CCCCCC; /* Light Gray */
+    text-decoration: none;
+    border: 2px solid #AAAAAA;
+    font-size: 0.8em;
+    font-family: "Press Start 2P", monospace;
+}
+
+#back-to-home:hover {
+    background-color: #BBBBBB;
+    border-color: #999999;
+}
+
+/* Highlighting for selected piece in 'moving' phase */
+.cell.selected {
+    background-color: #555; /* Darker background for selection */
+    border: 2px solid yellow;
+}
+
+/* .cell.selected-piece was an older name, replaced by .selected for simplicity */
+/* .cell.valid-move { */
+    /* This style was for a previous design iteration, can be removed or repurposed if needed */
+.cell.valid-move {
+    background-color: #223322; /* Dark green highlight for valid moves */
+    border-color: #00FF00; /* Green border for valid moves */
+}
