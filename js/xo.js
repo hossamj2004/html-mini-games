@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (board[row][col] === 'O') {
                     cellElement.classList.add('player-o');
                 }
-                
+
                 // Highlight selected piece (if any) during moving phase
                 if (gamePhase === 'moving' && selectedCell && selectedCell.row === row && selectedCell.col === col) {
                     cellElement.classList.add('selected');
@@ -159,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                         const prevSelectedElement = document.querySelector(`.cell[data-row='${selectedCell.row}'][data-col='${selectedCell.col}']`);
                         if (prevSelectedElement) prevSelectedElement.classList.remove('selected');
-                        
+
                         selectedCell = null;
                         drawBoard(); // Redraw to show move and clear old highlights
 
@@ -233,7 +233,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (piecesPlacedX === MAX_PIECES_PER_PLAYER && piecesPlacedO === MAX_PIECES_PER_PLAYER) {
                 gamePhase = 'moving';
                 // Switch player to start the moving phase
-                currentPlayer = (currentPlayer === 'X' ? 'O' : 'X'); 
+                currentPlayer = (currentPlayer === 'X' ? 'O' : 'X');
             } else {
                 // Still in placing phase, switch player
                 currentPlayer = (currentPlayer === 'X' ? 'O' : 'X');
@@ -262,7 +262,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         drawBoard();
         updateStatusDisplay();
-        playSound('restartGame'); 
+        playSound('restartGame');
     }
 
     // --- Sound Placeholder ---

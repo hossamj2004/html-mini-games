@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Head
         context.fillStyle = '#00cc00'; // Slightly darker green for head
         context.fillRect(player.x, player.y, player.width, headHeight);
-        
+
         // Eye (simple one) - facing right by default
         context.fillStyle = '#fff'; // White part of eye
         let eyeX = player.x + player.width * 0.6;
@@ -387,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 context.beginPath();
                 context.arc(centerX, centerY, COIN_RADIUS * 0.6, 0, Math.PI * 2);
                 context.fill();
-                
+
                 // Simple shine effect (small arc)
                 context.fillStyle = coinShineColor;
                 context.beginPath();
@@ -456,7 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 context.fillStyle = pupilColor;
                 context.fillRect(boss.x + boss.width * 0.2 - eyeSize / 4, boss.y + boss.height * 0.3 + eyeSize / 4, eyeSize / 2, eyeSize / 2);
                 context.fillRect(boss.x + boss.width * 0.8 - eyeSize / 4, boss.y + boss.height * 0.3 + eyeSize / 4, eyeSize / 2, eyeSize / 2);
-                
+
                 // Simple pattern
                 context.fillStyle = '#7A00AB'; // Slightly lighter violet
                 for(let i=0; i < boss.width; i+= TILE_SIZE/2){
@@ -501,7 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
             context.fillStyle = enemyFeetColor;
             context.fillRect(enemy.x, enemy.y + bodyHeight, enemy.width / 3, feetHeight);
             context.fillRect(enemy.x + (enemy.width * 2 / 3), enemy.y + bodyHeight, enemy.width / 3, feetHeight);
-            
+
             // Eye (white part)
             context.fillStyle = enemyEyeWhiteColor;
             let eyeX = enemy.x + enemy.width * 0.6; // Default facing right
@@ -567,7 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
         context.font = "16px 'Press Start 2P'"; // Adjusted size
         context.fillStyle = "#CCCCCC"; // Light Gray
         context.fillText("Press Enter to Restart Game", canvas.width / 2, canvas.height / 2 + 50); // Adjusted Y
-        
+
         if (!gameOverSoundPlayed) {
             playSound('gameOver');
             gameOverSoundPlayed = true;
@@ -592,7 +592,7 @@ document.addEventListener('DOMContentLoaded', () => {
         context.font = "16px 'Press Start 2P'"; // Adjusted size
         context.fillStyle = "#CCCCCC"; // Light Gray
         context.fillText("Press Enter to Play Again", canvas.width / 2, canvas.height / 2 + 50); // Adjusted Y
-        
+
         if (!gameWinSoundPlayed) {
             playSound('gameWin');
             gameWinSoundPlayed = true;
@@ -703,7 +703,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log("Loading level data...");
         score = 0; // Reset score when a new level loads.
         // Lives are persistent across levels until game over
-        
+
         // Reset sound flags for the new level/game session
         gameOverSoundPlayed = false;
         gameWinSoundPlayed = false;
