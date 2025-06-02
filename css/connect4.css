@@ -1,0 +1,112 @@
+/* Basic retro styling for Connect 4 */
+:root {
+    --board-bg: #00008B; /* Dark Blue */
+    --cell-empty-bg: #CCCCCC; /* Light Gray */
+    --player1-color: #FF0000; /* Red */
+    --player2-color: #FFFF00; /* Yellow */
+    --cell-size: 50px;
+    --board-border-color: #FFFFFF;
+}
+
+body {
+    background-color: #000;
+    color: #fff; /* Default text color */
+    font-family: "Press Start 2P", monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    margin: 0;
+    image-rendering: pixelated;
+}
+
+#game-container {
+    text-align: center;
+}
+
+#status-display {
+    margin-bottom: 20px;
+    font-size: 1.2em;
+    color: #FFFFFF; /* White for status */
+    height: 30px; /* Fixed height to prevent layout shift */
+}
+
+#board-container {
+    display: grid;
+    grid-template-columns: repeat(7, var(--cell-size));
+    grid-template-rows: repeat(6, var(--cell-size));
+    width: calc(var(--cell-size) * 7);
+    height: calc(var(--cell-size) * 6);
+    background-color: var(--board-bg);
+    border: 5px solid var(--board-border-color);
+    gap: 3px; /* Spacing for the "holes" effect */
+    padding: 5px;
+    margin: 20px auto; /* Center the board, add some margin */
+    cursor: pointer; /* Indicate the board is interactive */
+}
+
+.cell {
+    width: var(--cell-size);
+    height: var(--cell-size);
+    background-color: var(--cell-empty-bg);
+    border-radius: 50%; /* Makes them round */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* Individual cells are not directly clickable in typical Connect 4 for dropping pieces,
+       the column itself (or an invisible overlay per column) usually is.
+       The event listener will be on boardContainer or column-specific elements. */
+}
+
+.cell.player1 {
+    background-color: var(--player1-color);
+}
+
+.cell.player2 {
+    background-color: var(--player2-color);
+}
+
+/* Column Dropper Area (Optional: for explicit clickable column headers/areas) */
+/* If not using specific column dropper divs, the board-container itself will handle clicks. */
+/*
+.column-dropper {
+    height: var(--cell-size);
+    cursor: pointer;
+}
+*/
+
+#restart-button {
+    display: inline-block;
+    margin-top: 20px;
+    padding: 10px 20px;
+    color: #000;
+    background-color: #00FFFF; /* Cyan */
+    text-decoration: none;
+    border: 2px solid #00FFFF;
+    font-size: 1em;
+    font-family: "Press Start 2P", monospace;
+    cursor: pointer;
+}
+
+#restart-button:hover {
+    background-color: #00CCCC; /* Darker Cyan for hover */
+    border-color: #00CCCC;
+}
+
+#back-to-home {
+    display: inline-block;
+    margin-top: 15px; /* Space between restart and back button */
+    padding: 10px 20px;
+    color: #000;
+    background-color: #CCCCCC; /* Light Gray */
+    text-decoration: none;
+    border: 2px solid #AAAAAA;
+    font-size: 0.8em;
+    font-family: "Press Start 2P", monospace;
+}
+
+#back-to-home:hover {
+    background-color: #BBBBBB;
+    border-color: #999999;
+}
