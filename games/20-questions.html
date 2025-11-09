@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>20 Questions</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/20-questions.css">
+</head>
+<body>
+    <div class="container">
+        <h1>20 Questions</h1>
+        <div id="game-area">
+            <p>Think of a word, and I'll try to guess it in 20 questions or less!</p>
+            <div id="start-screen">
+                <button id="start-btn">Start Game</button>
+            </div>
+            <div id="question-screen" class="hidden">
+                <p id="question-text"></p>
+                <div class="buttons">
+                    <button id="yes-btn">Yes</button>
+                    <button id="no-btn">No</button>
+                </div>
+            </div>
+            <div id="guess-screen" class="hidden">
+                <p id="guess-text"></p>
+                <div class="buttons">
+                    <button id="correct-btn">Correct!</button>
+                    <button id="wrong-btn">Wrong</button>
+                </div>
+            </div>
+            <div id="end-screen" class="hidden">
+                <p id="end-text"></p>
+                <button id="play-again-btn">Play Again</button>
+            </div>
+        </div>
+    </div>
+    <script src="../js/20-questions.js"></script>
+</body>
+</html>
