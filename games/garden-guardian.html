@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Garden Guardian - Tactical Defense</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            color: #fff;
+            user-select: none;
+            touch-action: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            background-color: #2d5a27; /* Grass green */
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            max-width: 100%;
+            max-height: 100%;
+            cursor: crosshair;
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            display: flex;
+            gap: 20px;
+            pointer-events: auto;
+            background: rgba(0,0,0,0.6);
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .sun-display {
+            color: #ff0;
+            font-size: 20px;
+        }
+
+        .plant-selector {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            pointer-events: auto;
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            border: 2px solid #fff;
+        }
+
+        .plant-card {
+            width: 60px;
+            height: 80px;
+            background: #444;
+            border: 2px solid #888;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 10px;
+            text-align: center;
+        }
+
+        .plant-card.selected {
+            border-color: #0f0;
+            background: #555;
+        }
+
+        .plant-card.disabled {
+            opacity: 0.5;
+            cursor: not_allowed;
+        }
+
+        .menu-screen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            padding: 30px;
+            border: 4px solid #fff;
+            text-align: center;
+            pointer-events: auto;
+            z-index: 100;
+        }
+
+        .btn {
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-family: inherit;
+            font-weight: bold;
+            font-size: 18px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        .hidden { display: none !important; }
+
+        #back-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 12px;
+            color: #aaa;
+            text-decoration: none;
+            pointer-events: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <div id="ui-overlay">
+        <div class="hud" id="hud">
+            <div class="sun-display">☀️ <span id="sun-count">50</span></div>
+            <div id="score-display">SCORE: 0</div>
+        </div>
+
+        <div class="plant-selector" id="plant-selector">
+            <div class="plant-card" data-type="producer" id="card-producer">
+                <div style="font-size: 20px">🌻</div>
+                <div>50</div>
+            </div>
+            <div class="plant-card" data-type="attacker" id="card-attacker">
+                <div style="font-size: 20px">🌿</div>
+                <div>100</div>
+            </div>
+            <div class="plant-card" data-type="tank" id="card-tank">
+                <div style="font-size: 20px">🧱</div>
+                <div>50</div>
+            </div>
+        </div>
+
+        <div class="menu-screen" id="start-menu">
+            <h1>GARDEN GUARDIAN</h1>
+            <p>Protect your garden from the Slimes!</p>
+            <p style="font-size: 12px">Collect Sun ☀️ to plant defenders.</p>
+            <button class="btn" id="start-btn">START DEFENSE</button>
+        </div>
+
+        <div class="menu-screen hidden" id="game-over-menu">
+            <h1>GARDEN OVERRUN!</h1>
+            <p id="final-score">SCORE: 0</p>
+            <button class="btn" id="restart-btn">RETRY</button>
+        </div>
+    </div>
+
+    <a href="../index.html" id="back-btn">EXIT</a>
+</div>
+
+<script>
+/**
+ * GARDEN GUARDIAN
+ * A PVZ-style tactical defense game
+ */
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const sunCountEl = document.getElementById('sun-count');
+const scoreDisplayEl = document.getElementById('score-display');
+const startMenu = document.getElementById('start-menu');
+const gameOverMenu = document.getElementById('game-over-menu');
+const startBtn = document.getElementById('start-btn');
+const restartBtn = document.getElementById('restart-btn');
+const plantCards = document.querySelectorAll('.plant-card');
+
+// Constants
+const ROWS = 5;
+const COLS = 9;
+const CELL_SIZE = 70;
+const CANVAS_WIDTH = COLS * CELL_SIZE;
+const CANVAS_HEIGHT = ROWS * CELL_SIZE;
+
+// Game State
+let sun = 50;
+let score = 0;
+let state = 'MENU';
+let grid = []; // 2D array for plants
+let projectiles = [];
+let enemies = [];
+let sunParticles = [];
+let selectedPlant = null;
+let lastEnemySpawn = 0;
+let spawnRate = 3000; // ms
+let frameCount = 0;
+let audioCtx = null;
+
+canvas.width = CANVAS_WIDTH;
+canvas.height = CANVAS_HEIGHT;
+
+// Audio
+function initAudio() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+
+function playSound(freq, type, duration, vol = 0.1) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+}
+
+const sounds = {
+    shoot: () => playSound(600, 'sine', 0.1),
+    collect: () => { playSound(800, 'sine', 0.1); playSound(1200, 'sine', 0.2); },
+    place: () => playSound(200, 'square', 0.15),
+    hit: () => playSound(150, 'sawtooth', 0.1),
+    lose: () => playSound(100, 'sawtooth', 1)
+};
+
+// Classes
+class Plant {
+    constructor(x, y, type) {
+        this.x = x * CELL_SIZE;
+        this.y = y * CELL_SIZE;
+        this.gridX = x;
+        this.gridY = y;
+        this.type = type;
+        this.health = type === 'tank' ? 300 : 100;
+        this.maxHealth = this.health;
+        this.lastAction = Date.now();
+        this.cooldown = type === 'producer' ? 10000 : 2000;
+    }
+
+    update() {
+        const now = Date.now();
+        if (now - this.lastAction > this.cooldown) {
+            if (this.type === 'producer') {
+                this.produceSun();
+            } else if (this.type === 'attacker') {
+                this.shoot();
+            }
+            this.lastAction = now;
+        }
+    }
+
+    produceSun() {
+        sunParticles.push(new SunParticle(this.x + CELL_SIZE/2, this.y + CELL_SIZE/2, true));
+    }
+
+    shoot() {
+        // Check if there are enemies in this row
+        const hasEnemy = enemies.some(e => Math.abs(e.y - (this.y + CELL_SIZE/2)) < CELL_SIZE/2);
+        if (hasEnemy) {
+            projectiles.push(new Projectile(this.x + CELL_SIZE, this.y + CELL_SIZE/2));
+            sounds.shoot();
+        }
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x + CELL_SIZE/2, this.y + CELL_SIZE/2);
+
+        // Health bar
+        if (this.health < this.maxHealth) {
+            ctx.fillStyle = 'red';
+            ctx.fillRect(-20, -35, 40, 5);
+            ctx.fillStyle = 'green';
+            ctx.fillRect(-20, -35, 40 * (this.health / this.maxHealth), 5);
+        }
+
+        if (this.type === 'producer') {
+            ctx.fillStyle = '#fb0';
+            ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#f80';
+            ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2); ctx.fill();
+        } else if (this.type === 'attacker') {
+            ctx.fillStyle = '#4f4';
+            ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI*2); ctx.fill();
+            ctx.fillRect(0, -5, 25, 10);
+        } else if (this.type === 'tank') {
+            ctx.fillStyle = '#852';
+            ctx.fillRect(-20, -20, 40, 40);
+            ctx.fillStyle = '#a74';
+            ctx.fillRect(-15, -15, 30, 30);
+        }
+        ctx.restore();
+    }
+}
+
+class Enemy {
+    constructor(y) {
+        this.x = CANVAS_WIDTH;
+        this.y = y * CELL_SIZE;
+        this.health = 100;
+        this.maxHealth = 100;
+        this.speed = 0.3 + (score / 1000);
+        this.eating = null;
+        this.lastEat = 0;
+    }
+
+    update() {
+        if (this.eating) {
+            if (Date.now() - this.lastEat > 1000) {
+                this.eating.health -= 10;
+                sounds.hit();
+                this.lastEat = Date.now();
+                if (this.eating.health <= 0) {
+                    const gx = this.eating.gridX;
+                    const gy = this.eating.gridY;
+                    grid[gy][gx] = null;
+                    this.eating = null;
+                }
+            }
+        } else {
+            this.x -= this.speed;
+            // Collision with plants
+            const gx = Math.floor((this.x + 20) / CELL_SIZE);
+            const gy = Math.floor(this.y / CELL_SIZE);
+            if (gx >= 0 && gx < COLS && grid[gy][gx]) {
+                this.eating = grid[gy][gx];
+            }
+        }
+
+        if (this.x < 0) gameOver();
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.x + CELL_SIZE/2, this.y + CELL_SIZE/2);
+
+        ctx.fillStyle = '#f0f'; // Slime purple
+        ctx.beginPath();
+        ctx.arc(0, 10, 25, Math.PI, 0);
+        ctx.lineTo(25, 30);
+        ctx.lineTo(-25, 30);
+        ctx.fill();
+
+        // Eyes
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(-10, 0, 5, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(10, 0, 5, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(-10, 0, 2, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(10, 0, 2, 0, Math.PI*2); ctx.fill();
+
+        ctx.restore();
+    }
+}
+
+class Projectile {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.speed = 4;
+    }
+    update() {
+        this.x += this.speed;
+        // Collision with enemies
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            const e = enemies[i];
+            if (this.x > e.x && this.x < e.x + CELL_SIZE && Math.abs(this.y - (e.y + CELL_SIZE/2)) < 20) {
+                e.health -= 25;
+                sounds.hit();
+                if (e.health <= 0) {
+                    enemies.splice(i, 1);
+                    score += 10;
+                }
+                return true; // remove projectile
+            }
+        }
+        return this.x > CANVAS_WIDTH;
+    }
+    draw() {
+        ctx.fillStyle = '#4f4';
+        ctx.beginPath(); ctx.arc(this.x, this.y, 6, 0, Math.PI*2); ctx.fill();
+    }
+}
+
+class SunParticle {
+    constructor(x, y, fromPlant = false) {
+        this.x = x;
+        this.y = y;
+        this.targetY = fromPlant ? y : Math.random() * (CANVAS_HEIGHT - 50) + 25;
+        this.vy = fromPlant ? -2 : 1;
+        this.fromPlant = fromPlant;
+        this.life = 10000;
+        this.created = Date.now();
+    }
+    update() {
+        if (this.fromPlant) {
+            this.x += Math.sin(Date.now()/200) * 0.5;
+            this.y += this.vy;
+            this.vy *= 0.9;
+        } else {
+            if (this.y < this.targetY) this.y += this.vy;
+        }
+        return Date.now() - this.created > this.life;
+    }
+    draw() {
+        ctx.fillStyle = '#ff0';
+        ctx.beginPath(); ctx.arc(this.x, this.y, 15, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#f80';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+}
+
+// Game Logic
+function initGame() {
+    grid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+    enemies = [];
+    projectiles = [];
+    sunParticles = [];
+    sun = 100;
+    score = 0;
+    state = 'PLAYING';
+    lastEnemySpawn = Date.now();
+    spawnRate = 3000;
+
+    startMenu.classList.add('hidden');
+    gameOverMenu.classList.add('hidden');
+    initAudio();
+}
+
+function gameOver() {
+    state = 'GAMEOVER';
+    sounds.lose();
+    finalScoreEl = document.getElementById('final-score');
+    finalScoreEl.innerText = `SCORE: ${score}`;
+    gameOverMenu.classList.remove('hidden');
+}
+
+function update() {
+    if (state !== 'PLAYING') return;
+
+    frameCount++;
+
+    // Spawn Sun
+    if (frameCount % 180 === 0) {
+        sunParticles.push(new SunParticle(Math.random() * (CANVAS_WIDTH - 60) + 30, -20));
+    }
+
+    // Spawn Enemy
+    const now = Date.now();
+    if (now - lastEnemySpawn > spawnRate) {
+        enemies.push(new Enemy(Math.floor(Math.random() * ROWS)));
+        lastEnemySpawn = now;
+        spawnRate = Math.max(1000, 3000 - (score / 2));
+    }
+
+    // Update everything
+    grid.forEach(row => row.forEach(p => p && p.update()));
+
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+        if (projectiles[i].update()) projectiles.splice(i, 1);
+    }
+
+    enemies.forEach(e => e.update());
+
+    for (let i = sunParticles.length - 1; i >= 0; i--) {
+        if (sunParticles[i].update()) sunParticles.splice(i, 1);
+    }
+
+    // Update HUD
+    sunCountEl.innerText = sun;
+    scoreDisplayEl.innerText = `SCORE: ${score}`;
+
+    // Disable cards if not enough sun
+    plantCards.forEach(card => {
+        const cost = card.dataset.type === 'attacker' ? 100 : 50;
+        if (sun < cost) card.classList.add('disabled');
+        else card.classList.remove('disabled');
+    });
+}
+
+function draw() {
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    // Draw Grid
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    for(let i=0; i<=COLS; i++) { ctx.beginPath(); ctx.moveTo(i*CELL_SIZE, 0); ctx.lineTo(i*CELL_SIZE, CANVAS_HEIGHT); ctx.stroke(); }
+    for(let i=0; i<=ROWS; i++) { ctx.beginPath(); ctx.moveTo(0, i*CELL_SIZE); ctx.lineTo(CANVAS_WIDTH, i*CELL_SIZE); ctx.stroke(); }
+
+    grid.forEach(row => row.forEach(p => p && p.draw()));
+    projectiles.forEach(p => p.draw());
+    enemies.forEach(e => e.draw());
+    sunParticles.forEach(s => s.draw());
+
+    // Highlight selected cell
+    if (selectedPlant) {
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.fillRect(mousePos.gridX * CELL_SIZE, mousePos.gridY * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    }
+}
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+// Input
+let mousePos = { x: 0, y: 0, gridX: 0, gridY: 0 };
+
+function getCanvasPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = ((e.clientX || e.touches?.[0].clientX) - rect.left) * scaleX;
+    const y = ((e.clientY || e.touches?.[0].clientY) - rect.top) * scaleY;
+    return { x, y, gx: Math.floor(x/CELL_SIZE), gy: Math.floor(y/CELL_SIZE) };
+}
+
+canvas.addEventListener('mousemove', e => {
+    const pos = getCanvasPos(e);
+    mousePos = { x: pos.x, y: pos.y, gridX: pos.gx, gridY: pos.gy };
+});
+
+canvas.addEventListener('mousedown', e => {
+    const pos = getCanvasPos(e);
+
+    // Check sun collection
+    for (let i = sunParticles.length - 1; i >= 0; i--) {
+        const s = sunParticles[i];
+        const dist = Math.hypot(s.x - pos.x, s.y - pos.y);
+        if (dist < 30) {
+            sun += 25;
+            sounds.collect();
+            sunParticles.splice(i, 1);
+            return;
+        }
+    }
+
+    // Place plant
+    if (selectedPlant && state === 'PLAYING') {
+        const gx = pos.gx;
+        const gy = pos.gy;
+        if (gx >= 0 && gx < COLS && gy >= 0 && gy < ROWS && !grid[gy][gx]) {
+            const cost = selectedPlant === 'attacker' ? 100 : 50;
+            if (sun >= cost) {
+                sun -= cost;
+                grid[gy][gx] = new Plant(gx, gy, selectedPlant);
+                sounds.place();
+                selectedPlant = null;
+                plantCards.forEach(c => c.classList.remove('selected'));
+            }
+        }
+    }
+});
+
+// Touch support
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const pos = getCanvasPos(e);
+    // (Same logic as mousedown)
+    for (let i = sunParticles.length - 1; i >= 0; i--) {
+        const s = sunParticles[i];
+        if (Math.hypot(s.x - pos.x, s.y - pos.y) < 40) {
+            sun += 25; sounds.collect(); sunParticles.splice(i, 1); return;
+        }
+    }
+    if (selectedPlant && state === 'PLAYING') {
+        const gx = pos.gx, gy = pos.gy;
+        if (gx >= 0 && gx < COLS && gy >= 0 && gy < ROWS && !grid[gy][gx]) {
+            const cost = selectedPlant === 'attacker' ? 100 : 50;
+            if (sun >= cost) {
+                sun -= cost; grid[gy][gx] = new Plant(gx, gy, selectedPlant);
+                sounds.place(); selectedPlant = null;
+                plantCards.forEach(c => c.classList.remove('selected'));
+            }
+        }
+    }
+});
+
+plantCards.forEach(card => {
+    card.addEventListener('click', () => {
+        if (state !== 'PLAYING') return;
+        const type = card.dataset.type;
+        const cost = type === 'attacker' ? 100 : 50;
+        if (sun >= cost) {
+            selectedPlant = type;
+            plantCards.forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+        }
+    });
+});
+
+startBtn.addEventListener('click', initGame);
+restartBtn.addEventListener('click', initGame);
+
+loop();
+
+</script>
+</body>
+</html>
