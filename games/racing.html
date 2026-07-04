@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Retro Racer - 2D Racing Game</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #222;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            color: white;
+            user-select: none;
+            touch-action: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #333;
+        }
+
+        canvas {
+            display: block;
+            background-color: #444;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            max-width: 100%;
+            max-height: 100%;
+            image-rendering: pixelated;
+        }
+
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            pointer-events: none;
+            text-shadow: 2px 2px 0px #000;
+        }
+
+        .menu-screen {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border: 4px solid #fff;
+            pointer-events: auto;
+            max-width: 80%;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #ff0;
+            text-shadow: 3px 3px 0px #f00;
+        }
+
+        .btn {
+            background: #fff;
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px;
+            transition: transform 0.1s;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        #mobile-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            display: none;
+            justify-content: space-around;
+            pointer-events: none;
+        }
+
+        .touch-btn {
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 255, 0.3);
+            border: 4px solid #fff;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 30px;
+            pointer-events: auto;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        #back-btn {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            font-size: 8px;
+            color: #aaa;
+            text-decoration: none;
+            pointer-events: auto;
+        }
+
+        @media (max-width: 600px) {
+            #mobile-controls {
+                display: flex;
+            }
+            h1 { font-size: 18px; }
+            .btn { font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="hud" id="hud">
+        <div id="score">SCORE: 0</div>
+        <div id="lives">LIVES: 3</div>
+        <div id="speed">SPEED: 0</div>
+        <div id="high-score">HIGH: 0</div>
+    </div>
+
+    <div class="ui-layer" id="menu-layer">
+        <div class="menu-screen" id="start-menu">
+            <h1>RETRO RACER</h1>
+            <p style="font-size: 10px; line-height: 1.5;">Avoid other cars!<br>Arrows or A/D to move<br>P to Pause</p>
+            <button class="btn" id="start-btn">START GAME</button>
+        </div>
+
+        <div class="menu-screen hidden" id="game-over-menu">
+            <h1>CRASHED!</h1>
+            <p id="final-score">SCORE: 0</p>
+            <button class="btn" id="restart-btn">RESTART (R)</button>
+        </div>
+
+        <div class="menu-screen hidden" id="pause-menu">
+            <h1>PAUSED</h1>
+            <button class="btn" id="resume-btn">RESUME</button>
+        </div>
+    </div>
+
+    <div id="mobile-controls">
+        <div class="touch-btn" id="left-btn">←</div>
+        <div class="touch-btn" id="right-btn">→</div>
+    </div>
+
+    <a href="../index.html" id="back-btn">BACK TO MENU</a>
+</div>
+
+<script>
+/**
+ * RETRO RACER - 2D Racing Game
+ * A standalone HTML5 Game
+ */
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const startMenu = document.getElementById('start-menu');
+const gameOverMenu = document.getElementById('game-over-menu');
+const pauseMenu = document.getElementById('pause-menu');
+const startBtn = document.getElementById('start-btn');
+const restartBtn = document.getElementById('restart-btn');
+const resumeBtn = document.getElementById('resume-btn');
+const scoreEl = document.getElementById('score');
+const livesEl = document.getElementById('lives');
+const speedEl = document.getElementById('speed');
+const highEl = document.getElementById('high-score');
+const finalScoreEl = document.getElementById('final-score');
+
+// Game constants
+const LANES = 3;
+const LANE_WIDTH = 80;
+const CANVAS_WIDTH = LANES * LANE_WIDTH + 60; // Extra for road shoulders
+const CANVAS_HEIGHT = 600;
+
+// Game state
+let state = 'MENU';
+let score = 0;
+let lives = 3;
+let highScore = parseInt(localStorage.getItem('retroRacerHighScore')) || 0;
+let speed = 5;
+let frameCount = 0;
+let gameTime = 0;
+let roadOffset = 0;
+let player;
+let enemies = [];
+let particles = [];
+let keys = {};
+let audioCtx = null;
+
+// Initialize canvas size
+function resize() {
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
+}
+resize();
+highEl.innerText = `HIGH: ${highScore}`;
+
+// Audio System (Web Audio API)
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+
+function playSound(freq, type, duration, volume = 0.1) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+}
+
+const sounds = {
+    start: () => {
+        playSound(440, 'square', 0.2);
+        setTimeout(() => playSound(880, 'square', 0.4), 100);
+    },
+    crash: () => {
+        playSound(100, 'sawtooth', 0.5, 0.3);
+        playSound(50, 'sawtooth', 0.5, 0.3);
+    },
+    engine: (spd) => {
+        // Subtle engine hum based on speed
+        if (frameCount % 10 === 0) {
+            playSound(60 + spd * 2, 'sawtooth', 0.1, 0.02);
+        }
+    }
+};
+
+// Car Class
+class Car {
+    constructor(lane, y, isPlayer = false) {
+        this.lane = lane;
+        this.x = this.getLaneX(lane);
+        this.y = y;
+        this.w = 40;
+        this.h = 70;
+        this.isPlayer = isPlayer;
+        this.color = isPlayer ? '#00f' : this.randomColor();
+        this.targetX = this.x;
+    }
+
+    getLaneX(lane) {
+        return 30 + lane * LANE_WIDTH + (LANE_WIDTH - 40) / 2;
+    }
+
+    randomColor() {
+        const colors = ['#f00', '#0f0', '#ff0', '#f0f', '#0ff', '#fff'];
+        return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    update() {
+        if (this.isPlayer) {
+            if (keys['ArrowLeft'] || keys['a'] || keys['A']) this.moveLane(-1);
+            if (keys['ArrowRight'] || keys['d'] || keys['D']) this.moveLane(1);
+
+            // Smooth movement
+            this.x += (this.targetX - this.x) * 0.2;
+        } else {
+            this.y += speed * 0.8;
+        }
+    }
+
+    moveLane(dir) {
+        const newLane = Math.max(0, Math.min(LANES - 1, this.lane + dir));
+        if (newLane !== this.lane) {
+            this.lane = newLane;
+            this.targetX = this.getLaneX(this.lane);
+            if (audioCtx) playSound(200, 'sine', 0.05, 0.05);
+        }
+    }
+
+    draw() {
+        ctx.fillStyle = this.color;
+        // Car Body
+        ctx.fillRect(this.x, this.y, this.w, this.h);
+
+        // Roof
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fillRect(this.x + 5, this.y + 15, this.w - 10, 30);
+
+        // Windows
+        ctx.fillStyle = '#add8e6';
+        ctx.fillRect(this.x + 8, this.y + 18, this.w - 16, 10); // Front
+        ctx.fillRect(this.x + 8, this.y + 38, this.w - 16, 5);  // Rear
+
+        // Wheels
+        ctx.fillStyle = '#000';
+        ctx.fillRect(this.x - 4, this.y + 10, 4, 15);
+        ctx.fillRect(this.x + this.w, this.y + 10, 4, 15);
+        ctx.fillRect(this.x - 4, this.y + 45, 4, 15);
+        ctx.fillRect(this.x + this.w, this.y + 45, 4, 15);
+
+        // Headlights/Taillights
+        if (this.isPlayer) {
+            ctx.fillStyle = '#ff0';
+            ctx.fillRect(this.x + 5, this.y, 10, 4);
+            ctx.fillRect(this.x + this.w - 15, this.y, 10, 4);
+        } else {
+            ctx.fillStyle = '#f00';
+            ctx.fillRect(this.x + 5, this.y + this.h - 4, 10, 4);
+            ctx.fillRect(this.x + this.w - 15, this.y + this.h - 4, 10, 4);
+        }
+    }
+}
+
+class Particle {
+    constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 10;
+        this.vy = (Math.random() - 0.5) * 10;
+        this.life = 1.0;
+        this.color = color;
+        this.size = Math.random() * 5 + 2;
+    }
+    update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.life -= 0.02;
+    }
+    draw() {
+        ctx.globalAlpha = this.life;
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.size, this.size);
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+function initGame() {
+    player = new Car(1, CANVAS_HEIGHT - 120, true);
+    enemies = [];
+    particles = [];
+    score = 0;
+    lives = 3;
+    speed = 5;
+    gameTime = 0;
+    roadOffset = 0;
+    state = 'PLAYING';
+
+    updateHUD();
+    startMenu.classList.add('hidden');
+    gameOverMenu.classList.add('hidden');
+    pauseMenu.classList.add('hidden');
+
+    initAudio();
+    sounds.start();
+}
+
+function spawnEnemy() {
+    if (frameCount % Math.max(30, Math.floor(100 - speed * 2)) === 0) {
+        const lane = Math.floor(Math.random() * LANES);
+        // Check if lane is clear
+        const clear = enemies.every(e => Math.abs(e.y - (-100)) > 200 || e.lane !== lane);
+        if (clear) {
+            enemies.push(new Car(lane, -100));
+        }
+    }
+}
+
+function checkCollision(a, b) {
+    return a.x < b.x + b.w &&
+           a.x + a.w > b.x &&
+           a.y < b.y + b.h &&
+           a.y + a.h > b.y;
+}
+
+function explode(x, y, color) {
+    for (let i = 0; i < 20; i++) {
+        particles.push(new Particle(x, y, color));
+    }
+    for (let i = 0; i < 20; i++) {
+        particles.push(new Particle(x, y, '#ff0'));
+    }
+}
+
+function updateHUD() {
+    scoreEl.innerText = `SCORE: ${Math.floor(score)}`;
+    livesEl.innerText = `LIVES: ${lives}`;
+    speedEl.innerText = `SPEED: ${Math.floor(speed * 10)}`;
+    highEl.innerText = `HIGH: ${highScore}`;
+}
+
+function handleCollision(enemyIndex) {
+    lives--;
+    sounds.crash();
+    explode(player.x + player.w/2, player.y + player.h/2, '#f00');
+
+    // Remove the enemy we hit
+    enemies.splice(enemyIndex, 1);
+
+    // Invulnerability flicker or just continue
+    if (lives <= 0) {
+        gameOver();
+    } else {
+        updateHUD();
+    }
+}
+
+function gameOver() {
+    state = 'GAMEOVER';
+    explode(player.x + player.w/2, player.y + player.h/2, player.color);
+
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('retroRacerHighScore', highScore);
+    }
+
+    updateHUD();
+    finalScoreEl.innerText = `SCORE: ${Math.floor(score)}`;
+    gameOverMenu.classList.remove('hidden');
+}
+
+function update() {
+    if (state !== 'PLAYING') return;
+
+    gameTime++;
+    score += speed / 100;
+    speed = 5 + (gameTime / 1000);
+
+    updateHUD();
+
+    roadOffset = (roadOffset + speed) % 100;
+
+    player.update();
+
+    spawnEnemy();
+
+    for (let i = enemies.length - 1; i >= 0; i--) {
+        const enemy = enemies[i];
+        enemy.update();
+        if (checkCollision(player, enemy)) {
+            handleCollision(i);
+        } else if (enemy.y > CANVAS_HEIGHT) {
+            enemies.splice(i, 1);
+        }
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        if (particles[i].life <= 0) particles.splice(i, 1);
+    }
+
+    sounds.engine(speed);
+}
+
+function updateGameOver() {
+    for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        if (particles[i].life <= 0) particles.splice(i, 1);
+    }
+}
+
+function draw() {
+    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+    // Draw Road
+    ctx.fillStyle = '#444';
+    ctx.fillRect(30, 0, LANES * LANE_WIDTH, CANVAS_HEIGHT);
+
+    // Road Shoulders
+    ctx.fillStyle = '#222';
+    ctx.fillRect(0, 0, 30, CANVAS_HEIGHT);
+    ctx.fillRect(CANVAS_WIDTH - 30, 0, 30, CANVAS_HEIGHT);
+
+    // Shoulder stripes
+    ctx.fillStyle = (Math.floor(gameTime * speed / 20) % 2 === 0) ? '#f00' : '#fff';
+    for (let y = -100; y < CANVAS_HEIGHT; y += 40) {
+        const yPos = y + (roadOffset % 40);
+        ctx.fillRect(25, yPos, 5, 20);
+        ctx.fillRect(CANVAS_WIDTH - 30, yPos, 5, 20);
+    }
+
+    // Lane markings
+    ctx.fillStyle = '#fff';
+    for (let i = 1; i < LANES; i++) {
+        for (let y = -100; y < CANVAS_HEIGHT; y += 100) {
+            ctx.fillRect(30 + i * LANE_WIDTH - 2, y + roadOffset, 4, 50);
+        }
+    }
+
+    // Draw Entities
+    enemies.forEach(e => e.draw());
+    if (player && state !== 'GAMEOVER') player.draw();
+    particles.forEach(p => p.draw());
+}
+
+function loop() {
+    if (state === 'PLAYING') {
+        update();
+    } else if (state === 'GAMEOVER') {
+        updateGameOver();
+    }
+    draw();
+    frameCount++;
+    requestAnimationFrame(loop);
+}
+
+// Input Handling
+window.addEventListener('keydown', e => {
+    keys[e.key] = true;
+    if (e.key === 'p' || e.key === 'P') togglePause();
+    if (e.key === 'r' || e.key === 'R') {
+        if (state === 'GAMEOVER') initGame();
+    }
+});
+window.addEventListener('keyup', e => keys[e.key] = false);
+
+// Prevent arrow key scrolling
+window.addEventListener('keydown', e => {
+    if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) {
+        e.preventDefault();
+    }
+}, false);
+
+function togglePause() {
+    if (state === 'PLAYING') {
+        state = 'PAUSED';
+        pauseMenu.classList.remove('hidden');
+    } else if (state === 'PAUSED') {
+        state = 'PLAYING';
+        pauseMenu.classList.add('hidden');
+    }
+}
+
+// Buttons
+startBtn.addEventListener('click', initGame);
+restartBtn.addEventListener('click', initGame);
+resumeBtn.addEventListener('click', togglePause);
+
+// Mobile Touch
+document.getElementById('left-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (state === 'PLAYING') player.moveLane(-1);
+});
+document.getElementById('right-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    if (state === 'PLAYING') player.moveLane(1);
+});
+
+// Start loop
+loop();
+
+</script>
+</body>
+</html>

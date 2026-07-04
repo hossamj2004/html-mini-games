@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Garden Guardian - Tactical Defense</title>
+    <style>
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+            background-color: #1a1a1a; font-family: 'Courier New', Courier, monospace;
+            font-weight: bold; color: #fff; user-select: none; touch-action: none;
+        }
+        #game-container {
+            position: relative; width: 100%; height: 100%;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+        }
+        canvas {
+            background-color: #2d5a27; box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            max-width: 100%; max-height: 100%; cursor: crosshair;
+        }
+        #ui-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .hud {
+            position: absolute; top: 10px; left: 10px; display: flex; gap: 20px;
+            pointer-events: auto; background: rgba(0,0,0,0.6); padding: 10px; border-radius: 5px;
+        }
+        .sun-display { color: #ff0; font-size: 20px; }
+        .plant-selector {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 10px; pointer-events: auto; background: rgba(0,0,0,0.8);
+            padding: 10px; border: 2px solid #fff; flex-wrap: wrap; justify-content: center;
+        }
+        .plant-card {
+            width: 60px; height: 80px; background: #444; border: 2px solid #888;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 10px; text-align: center;
+        }
+        .plant-card.selected { border-color: #0f0; background: #555; }
+        .plant-card.disabled { opacity: 0.5; cursor: not_allowed; }
+        .menu-screen {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9); padding: 30px; border: 4px solid #fff;
+            text-align: center; pointer-events: auto; z-index: 100;
+        }
+        .btn {
+            background: #fff; color: #000; border: none; padding: 15px 30px;
+            font-family: inherit; font-weight: bold; font-size: 18px; cursor: pointer; margin-top: 20px;
+        }
+        .hidden { display: none !important; }
+        #back-btn { position: absolute; top: 10px; right: 10px; font-size: 12px; color: #aaa; text-decoration: none; pointer-events: auto; }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui-overlay">
+        <div class="hud">
+            <div class="sun-display">☀️ <span id="sun-count">100</span></div>
+            <div id="score-display">SCORE: 0</div>
+        </div>
+        <div class="plant-selector" id="plant-selector">
+            <div class="plant-card" data-type="producer" id="card-producer">
+                <div style="font-size: 20px">🌻</div><div>50</div>
+            </div>
+            <div class="plant-card" data-type="attacker" id="card-attacker">
+                <div style="font-size: 20px">🌿</div><div>100</div>
+            </div>
+            <div class="plant-card" data-type="ice" id="card-ice">
+                <div style="font-size: 20px">❄️</div><div>175</div>
+            </div>
+            <div class="plant-card" data-type="rapid" id="card-rapid">
+                <div style="font-size: 20px">🌵</div><div>200</div>
+            </div>
+            <div class="plant-card" data-type="tank" id="card-tank">
+                <div style="font-size: 20px">🧱</div><div>50</div>
+            </div>
+        </div>
+        <div class="menu-screen" id="start-menu">
+            <h1>GARDEN GUARDIAN</h1>
+            <button class="btn" id="start-btn">START DEFENSE</button>
+        </div>
+        <div class="menu-screen hidden" id="game-over-menu">
+            <h1>GAME OVER</h1>
+            <p id="final-score">SCORE: 0</p>
+            <button class="btn" id="restart-btn">RETRY</button>
+        </div>
+    </div>
+    <a href="../index.html" id="back-btn">EXIT</a>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const ROWS = 5, COLS = 9, CELL_SIZE = 70;
+canvas.width = COLS * CELL_SIZE;
+canvas.height = ROWS * CELL_SIZE;
+
+// Game State
+window.game = {
+    sun: 100,
+    score: 0,
+    state: 'MENU',
+    grid: Array.from({length: ROWS}, () => Array(COLS).fill(null)),
+    enemies: [],
+    projectiles: [],
+    sunParticles: [],
+    selectedPlant: null,
+    frameCount: 0,
+    lastEnemySpawn: 0,
+    spawnRate: 200
+};
+
+let audioCtx = null;
+function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
+function playSound(f, t, d, v=0.1) {
+    if (!audioCtx) return;
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = t; o.frequency.setValueAtTime(f, audioCtx.currentTime);
+    g.gain.setValueAtTime(v, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + d);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + d);
+}
+
+class Plant {
+    constructor(gx, gy, type) {
+        this.gx = gx; this.gy = gy;
+        this.x = gx * CELL_SIZE; this.y = gy * CELL_SIZE;
+        this.type = type;
+        this.health = type === 'tank' ? 400 : 100;
+        this.maxH = this.health;
+        this.lastAction = window.game.frameCount;
+        this.cd = {producer: 600, attacker: 120, ice: 150, rapid: 45}[type] || 120;
+    }
+    update() {
+        const currentFrame = window.game.frameCount;
+        if (currentFrame - this.lastAction >= this.cd) {
+            if (this.type === 'producer') {
+                window.game.sunParticles.push(new SunParticle(this.x + CELL_SIZE/2, this.y + CELL_SIZE/2, true));
+                this.lastAction = currentFrame;
+            } else if (this.type !== 'tank') {
+                const shot = this.shoot();
+                if (shot) {
+                    this.lastAction = currentFrame;
+                }
+            }
+        }
+    }
+    shoot() {
+        const hasEnemy = window.game.enemies.some(e => e.gy === this.gy && e.x > this.x);
+        if (hasEnemy) {
+            const projX = this.x + CELL_SIZE;
+            const projY = this.y + CELL_SIZE/2;
+            window.game.projectiles.push(new Projectile(projX, projY, this.gy, this.type));
+            playSound(600, 'sine', 0.1, 0.05);
+            return true;
+        }
+        return false;
+    }
+    draw() {
+        ctx.save(); ctx.translate(this.x + CELL_SIZE/2, this.y + CELL_SIZE/2);
+        if (this.health < this.maxH) {
+            ctx.fillStyle = 'red'; ctx.fillRect(-20, -35, 40, 5);
+            ctx.fillStyle = 'green'; ctx.fillRect(-20, -35, 40 * (this.health/this.maxH), 5);
+        }
+        if (this.type === 'producer') { ctx.fillStyle = '#fb0'; ctx.beginPath(); ctx.arc(0,0,20,0,Math.PI*2); ctx.fill(); }
+        else if (this.type === 'attacker') { ctx.fillStyle = '#4f4'; ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill(); ctx.fillRect(0,-5,25,10); }
+        else if (this.type === 'ice') { ctx.fillStyle = '#4cf'; ctx.beginPath(); ctx.arc(0,0,15,0,Math.PI*2); ctx.fill(); ctx.fillRect(0,-5,25,10); ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(5,-5,3,0,Math.PI*2); ctx.fill(); }
+        else if (this.type === 'rapid') { ctx.fillStyle = '#282'; ctx.fillRect(-10,-20,20,40); ctx.fillStyle = '#4f4'; ctx.fillRect(0,-5,20,10); }
+        else if (this.type === 'tank') { ctx.fillStyle = '#852'; ctx.fillRect(-20,-20,40,40); }
+        ctx.restore();
+    }
+}
+
+class Enemy {
+    constructor(gy) {
+        this.gy = gy; this.x = canvas.width; this.y = gy * CELL_SIZE;
+        this.health = 100; this.baseSpd = 0.4 + (window.game.score / 2000);
+        this.spd = this.baseSpd; this.eating = null; this.lastEat = 0; this.slow = 0;
+    }
+    update() {
+        if (this.slow > 0) { this.slow--; this.spd = this.baseSpd * 0.5; } else { this.spd = this.baseSpd; }
+        if (this.eating) {
+            if (window.game.frameCount - this.lastEat > 60) {
+                this.eating.health -= 10; playSound(150, 'sawtooth', 0.05, 0.05); this.lastEat = window.game.frameCount;
+                if (this.eating.health <= 0) { window.game.grid[this.gy][this.eating.gx] = null; this.eating = null; }
+            }
+        } else {
+            this.x -= this.spd;
+            const gx = Math.floor((this.x + 10) / CELL_SIZE);
+            if (gx >= 0 && gx < COLS && window.game.grid[this.gy][gx]) this.eating = window.game.grid[this.gy][gx];
+        }
+        if (this.x < -CELL_SIZE) gameOver();
+    }
+    draw() {
+        ctx.save(); ctx.translate(this.x + CELL_SIZE/2, this.y + CELL_SIZE/2);
+        ctx.fillStyle = this.slow > 0 ? '#4cf' : '#f0f';
+        ctx.beginPath(); ctx.arc(0,10,25,Math.PI,0); ctx.lineTo(25,30); ctx.lineTo(-25,30); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-10,0,5,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(10,0,5,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+}
+
+class Projectile {
+    constructor(x, y, gy, type) {
+        this.x = x; this.y = y; this.gy = gy; this.type = type;
+        this.spd = 5; this.dmg = type === 'rapid' ? 15 : 25;
+        this.color = type === 'ice' ? '#4cf' : (type === 'rapid' ? '#ff4' : '#4f4');
+    }
+    update() {
+        this.x += this.spd;
+        const enemiesInRow = window.game.enemies.filter(e => e.gy === this.gy);
+        for (let i = window.game.enemies.length - 1; i >= 0; i--) {
+            const e = window.game.enemies[i];
+            if (e.gy === this.gy && Math.abs(this.x - (e.x + 25)) < 25) {
+                e.health -= this.dmg; if (this.type === 'ice') e.slow = 180;
+                playSound(150, 'sawtooth', 0.05, 0.05);
+                if (e.health <= 0) { window.game.enemies.splice(i, 1); window.game.score += 10; }
+                return true;
+            }
+        }
+        return this.x > canvas.width;
+    }
+    draw() { ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x, this.y, 6, 0, Math.PI*2); ctx.fill(); }
+}
+
+class SunParticle {
+    constructor(x, y, fromP = false) {
+        this.x = x; this.y = y; this.targetY = fromP ? y : Math.random()*(canvas.height-50)+25;
+        this.vy = fromP ? -2 : 1; this.fromP = fromP; this.life = 600; this.spawned = window.game.frameCount;
+    }
+    update() {
+        if (this.fromP) { this.x += Math.sin(window.game.frameCount/10)*0.5; this.y += this.vy; this.vy *= 0.9; }
+        else { if (this.y < this.targetY) this.y += this.vy; }
+        return window.game.frameCount - this.spawned > this.life;
+    }
+    draw() {
+        ctx.fillStyle = '#ff0'; ctx.beginPath(); ctx.arc(this.x, this.y, 15, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle = '#f80'; ctx.lineWidth = 2; ctx.stroke();
+    }
+}
+
+function initGame() {
+    window.game.grid = Array.from({length: ROWS}, () => Array(COLS).fill(null));
+    window.game.enemies = []; window.game.projectiles = []; window.game.sunParticles = [];
+    window.game.sun = 100; window.game.score = 0; window.game.frameCount = 0; window.game.state = 'PLAYING';
+    document.getElementById('start-menu').classList.add('hidden');
+    document.getElementById('game-over-menu').classList.add('hidden');
+    initAudio();
+}
+
+function gameOver() {
+    window.game.state = 'GAMEOVER';
+    document.getElementById('final-score').innerText = `SCORE: ${window.game.score}`;
+    document.getElementById('game-over-menu').classList.remove('hidden');
+}
+
+function update() {
+    if (window.game.state !== 'PLAYING') return;
+    window.game.frameCount++;
+    if (window.game.frameCount % 300 === 0) window.game.sunParticles.push(new SunParticle(Math.random()*(canvas.width-60)+30, -20));
+    if (window.game.frameCount % Math.max(60, 250 - Math.floor(window.game.score/5)) === 0) {
+        window.game.enemies.push(new Enemy(Math.floor(Math.random()*ROWS)));
+    }
+        for(let r=0; r<ROWS; r++) {
+            for(let c=0; c<COLS; c++) {
+                if(window.game.grid[r][c]) {
+                    window.game.grid[r][c].update();
+                }
+            }
+        }
+    for(let i=window.game.projectiles.length-1; i>=0; i--) if(window.game.projectiles[i].update()) window.game.projectiles.splice(i,1);
+    window.game.enemies.forEach(e => e.update());
+    for(let i=window.game.sunParticles.length-1; i>=0; i--) if(window.game.sunParticles[i].update()) window.game.sunParticles.splice(i,1);
+
+    document.getElementById('sun-count').innerText = window.game.sun;
+    document.getElementById('score-display').innerText = `SCORE: ${window.game.score}`;
+    const costs = {producer:50, attacker:100, ice:175, rapid:200, tank:50};
+    document.querySelectorAll('.plant-card').forEach(card => {
+        if (window.game.sun < costs[card.dataset.type]) card.classList.add('disabled'); else card.classList.remove('disabled');
+    });
+}
+
+function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+    for(let i=0; i<=COLS; i++) { ctx.beginPath(); ctx.moveTo(i*CELL_SIZE,0); ctx.lineTo(i*CELL_SIZE,canvas.height); ctx.stroke(); }
+    for(let i=0; i<=ROWS; i++) { ctx.beginPath(); ctx.moveTo(0,i*CELL_SIZE); ctx.lineTo(canvas.width,i*CELL_SIZE); ctx.stroke(); }
+    for(let r=0; r<ROWS; r++) for(let c=0; c<COLS; c++) if(window.game.grid[r][c]) window.game.grid[r][c].draw();
+    window.game.projectiles.forEach(p => p.draw()); window.game.enemies.forEach(e => e.draw()); window.game.sunParticles.forEach(s => s.draw());
+    if (window.game.selectedPlant) {
+        ctx.fillStyle = 'rgba(255,255,255,0.2)';
+        ctx.fillRect(mousePos.gx * CELL_SIZE, mousePos.gy * CELL_SIZE, CELL_SIZE, CELL_SIZE);
+    }
+}
+
+function loop() { update(); draw(); requestAnimationFrame(loop); }
+
+let mousePos = {x:0, y:0, gx:0, gy:0};
+function getPos(e) {
+    const rect = canvas.getBoundingClientRect(), cx = e.clientX || (e.touches?.[0].clientX), cy = e.clientY || (e.touches?.[0].clientY);
+    const x = (cx - rect.left) * (canvas.width/rect.width), y = (cy - rect.top) * (canvas.height/rect.height);
+    return {x, y, gx: Math.floor(x/CELL_SIZE), gy: Math.floor(y/CELL_SIZE)};
+}
+canvas.addEventListener('mousemove', e => mousePos = getPos(e));
+function handle(e) {
+    const p = getPos(e);
+    for (let i=window.game.sunParticles.length-1; i>=0; i--) {
+        if (Math.hypot(window.game.sunParticles[i].x - p.x, window.game.sunParticles[i].y - p.y) < 35) {
+            window.game.sun += 25; playSound(1000, 'sine', 0.1, 0.05); window.game.sunParticles.splice(i,1); return;
+        }
+    }
+    if (window.game.selectedPlant && window.game.state === 'PLAYING' && p.gx>=0 && p.gx<COLS && p.gy>=0 && p.gy<ROWS && !window.game.grid[p.gy][p.gx]) {
+        const costs = {producer:50, attacker:100, ice:175, rapid:200, tank:50}, cost = costs[window.game.selectedPlant];
+        if (window.game.sun >= cost) {
+            window.game.sun -= cost; window.game.grid[p.gy][p.gx] = new Plant(p.gx, p.gy, window.game.selectedPlant);
+            playSound(200, 'square', 0.1, 0.1); window.game.selectedPlant = null;
+            document.querySelectorAll('.plant-card').forEach(c => c.classList.remove('selected'));
+        }
+    }
+}
+canvas.addEventListener('mousedown', handle);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); handle(e); });
+document.querySelectorAll('.plant-card').forEach(card => {
+    card.addEventListener('click', () => {
+        if (window.game.state !== 'PLAYING') return;
+        const type = card.dataset.type, costs = {producer:50, attacker:100, ice:175, rapid:200, tank:50};
+        if (window.game.sun >= costs[type]) {
+            window.game.selectedPlant = type;
+            document.querySelectorAll('.plant-card').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+        }
+    });
+});
+document.getElementById('start-btn').addEventListener('click', initGame);
+document.getElementById('restart-btn').addEventListener('click', initGame);
+loop();
+</script>
+</body>
+</html>
