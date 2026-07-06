@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Idle Coffee Shop - Retro Mini Games</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #3e2723;
+            color: #efebe9;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #game-container {
+            width: 400px;
+            background-color: #5d4037;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+        #coffee-btn {
+            width: 150px;
+            height: 150px;
+            background-color: #795548;
+            border: 8px solid #3e2723;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 60px;
+            margin: 20px auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: transform 0.1s;
+            user-select: none;
+        }
+        #coffee-btn:active {
+            transform: scale(0.9);
+        }
+        #stats {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        .upgrade {
+            background-color: #8d6e63;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .upgrade:hover {
+            background-color: #a1887f;
+        }
+        .upgrade.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .upgrade-info {
+            text-align: left;
+        }
+        .upgrade-name {
+            font-weight: bold;
+        }
+        .upgrade-cost {
+            font-size: 14px;
+            color: #d7ccc8;
+        }
+        #back-link {
+            display: block;
+            margin-top: 20px;
+            color: #bcaaa4;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>☕ COFFEE SHOP</h1>
+        <div id="stats">
+            Coins: <span id="coins">0</span><br>
+            <small>Per Sec: <span id="cps">0</span></small>
+        </div>
+        <div id="coffee-btn">☕</div>
+        <div id="upgrades">
+            <div class="upgrade" onclick="buyUpgrade(0)" id="upgrade-0">
+                <div class="upgrade-info">
+                    <div class="upgrade-name">Better Beans</div>
+                    <div class="upgrade-cost">Cost: 15</div>
+                </div>
+                <div class="upgrade-count" id="count-0">0</div>
+            </div>
+            <div class="upgrade" onclick="buyUpgrade(1)" id="upgrade-1">
+                <div class="upgrade-info">
+                    <div class="upgrade-name">Auto-Brewer</div>
+                    <div class="upgrade-cost">Cost: 100</div>
+                </div>
+                <div class="upgrade-count" id="count-1">0</div>
+            </div>
+            <div class="upgrade" onclick="buyUpgrade(2)" id="upgrade-2">
+                <div class="upgrade-info">
+                    <div class="upgrade-name">Barista</div>
+                    <div class="upgrade-cost">Cost: 500</div>
+                </div>
+                <div class="upgrade-count" id="count-2">0</div>
+            </div>
+        </div>
+        <a href="../index.html" id="back-link">Back to Home</a>
+    </div>
+
+    <script>
+        let coins = parseFloat(localStorage.getItem('coffee_coins')) || 0;
+        let upgrades = JSON.parse(localStorage.getItem('coffee_upgrades')) || [0, 0, 0];
+
+        const upgradeData = [
+            { name: "Better Beans", baseCost: 15, cps: 0.1, clickValue: 1 },
+            { name: "Auto-Brewer", baseCost: 100, cps: 1, clickValue: 0 },
+            { name: "Barista", baseCost: 500, cps: 5, clickValue: 0 }
+        ];
+
+        function getUpgradeCost(index) {
+            return Math.floor(upgradeData[index].baseCost * Math.pow(1.15, upgrades[index]));
+        }
+
+        function updateUI() {
+            document.getElementById('coins').textContent = Math.floor(coins);
+
+            let totalCPS = 0;
+            upgrades.forEach((count, i) => {
+                totalCPS += count * upgradeData[i].cps;
+                document.getElementById(`count-${i}`).textContent = count;
+                const cost = getUpgradeCost(i);
+                document.getElementById(`upgrade-${i}`).querySelector('.upgrade-cost').textContent = `Cost: ${cost}`;
+
+                if (coins >= cost) {
+                    document.getElementById(`upgrade-${i}`).classList.remove('disabled');
+                } else {
+                    document.getElementById(`upgrade-${i}`).classList.add('disabled');
+                }
+            });
+            document.getElementById('cps').textContent = totalCPS.toFixed(1);
+        }
+
+        function clickCoffee() {
+            let clickValue = 1;
+            clickValue += upgrades[0] * upgradeData[0].clickValue;
+            coins += clickValue;
+            updateUI();
+        }
+
+        function buyUpgrade(index) {
+            const cost = getUpgradeCost(index);
+            if (coins >= cost) {
+                coins -= cost;
+                upgrades[index]++;
+                saveGame();
+                updateUI();
+            }
+        }
+
+        function saveGame() {
+            localStorage.setItem('coffee_coins', coins);
+            localStorage.setItem('coffee_upgrades', JSON.stringify(upgrades));
+        }
+
+        document.getElementById('coffee-btn').onclick = clickCoffee;
+
+        // Game Loop for CPS
+        setInterval(() => {
+            let totalCPS = 0;
+            upgrades.forEach((count, i) => {
+                totalCPS += count * upgradeData[i].cps;
+            });
+            coins += totalCPS / 10; // Every 100ms
+            updateUI();
+            if (Math.random() < 0.1) saveGame(); // Periodic save
+        }, 100);
+
+        updateUI();
+
+        // Expose state for verification
+        window.game = {
+            get coins() { return coins; },
+            get upgrades() { return upgrades; },
+            reset: () => {
+                coins = 0;
+                upgrades = [0, 0, 0];
+                saveGame();
+                updateUI();
+            }
+        };
+    </script>
+</body>
+</html>

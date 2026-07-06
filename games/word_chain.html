@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Word Chain - Retro Mini Games</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #121213;
+            color: #fff;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        #game-container {
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            margin: 0 0 20px 0;
+            font-size: 32px;
+            letter-spacing: 2px;
+        }
+        .info {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #818384;
+        }
+        .word-target {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .word-target span {
+            color: #6aaa64;
+        }
+        #chain {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+            margin-bottom: 30px;
+        }
+        .chain-step {
+            display: flex;
+            justify-content: center;
+            gap: 5px;
+        }
+        .letter {
+            width: 50px;
+            height: 50px;
+            border: 2px solid #3a3a3c;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 28px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .letter.filled {
+            border-color: #565758;
+        }
+        .letter.active {
+            border-color: #818384;
+        }
+        .letter.correct {
+            background-color: #6aaa64;
+            border-color: #6aaa64;
+        }
+        #keyboard {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 100%;
+        }
+        .key-row {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+        }
+        .key {
+            background-color: #818384;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 15px 10px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            text-transform: uppercase;
+            flex: 1;
+            max-width: 40px;
+        }
+        .key.wide {
+            max-width: 65px;
+        }
+        #message {
+            margin-top: 20px;
+            font-weight: bold;
+            height: 24px;
+        }
+        #back-link {
+            margin-top: 40px;
+            color: #818384;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>WORD CHAIN</h1>
+        <div class="info">
+            Change one letter at a time to reach the goal.
+        </div>
+        <div class="word-target">
+            START: <span id="start-word-display"></span> → GOAL: <span id="goal-word-display"></span>
+        </div>
+        <div id="chain">
+            <!-- Chain steps will be added here -->
+        </div>
+        <div id="keyboard">
+            <!-- Keyboard will be generated here -->
+        </div>
+        <div id="message"></div>
+        <a href="../index.html" id="back-link">Back to Home</a>
+    </div>
+
+    <script>
+        const puzzles = [
+            { start: 'CAT', goal: 'DOG' },
+            { start: 'COLD', goal: 'WARM' },
+            { start: 'FISH', goal: 'BIRD' },
+            { start: 'CAKE', goal: 'PIE' },
+            { start: 'WORK', goal: 'PLAY' },
+            { start: 'MOON', goal: 'STAR' }
+        ];
+
+        // Pick puzzle based on day
+        const dayOffset = Math.floor(Date.now() / (1000 * 60 * 60 * 24));
+        const puzzle = puzzles[dayOffset % puzzles.length];
+
+        let chain = [puzzle.start];
+        let currentInput = "";
+        let gameOver = false;
+
+        const chainContainer = document.getElementById('chain');
+        const messageDisplay = document.getElementById('message');
+        const startWordDisplay = document.getElementById('start-word-display');
+        const goalWordDisplay = document.getElementById('goal-word-display');
+
+        startWordDisplay.textContent = puzzle.start;
+        goalWordDisplay.textContent = puzzle.goal;
+
+        function init() {
+            renderChain();
+            createKeyboard();
+        }
+
+        function renderChain() {
+            chainContainer.innerHTML = '';
+            chain.forEach((word, index) => {
+                const row = document.createElement('div');
+                row.className = 'chain-step';
+                for (let i = 0; i < puzzle.start.length; i++) {
+                    const letter = document.createElement('div');
+                    letter.className = 'letter filled';
+                    if (word === puzzle.goal) letter.classList.add('correct');
+                    letter.textContent = word[i];
+                    row.appendChild(letter);
+                }
+                chainContainer.appendChild(row);
+            });
+
+            if (!gameOver && chain[chain.length-1] !== puzzle.goal) {
+                const inputRow = document.createElement('div');
+                inputRow.className = 'chain-step';
+                for (let i = 0; i < puzzle.start.length; i++) {
+                    const letter = document.createElement('div');
+                    letter.className = 'letter';
+                    if (i === currentInput.length) letter.classList.add('active');
+                    letter.textContent = currentInput[i] || '';
+                    inputRow.appendChild(letter);
+                }
+                chainContainer.appendChild(inputRow);
+            }
+        }
+
+        function createKeyboard() {
+            const rows = [
+                'QWERTYUIOP',
+                'ASDFGHJKL',
+                ['ENTER', 'ZXCVBNM', 'BACK']
+            ];
+            const keyboard = document.getElementById('keyboard');
+            rows.forEach(row => {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'key-row';
+                if (typeof row === 'string') {
+                    row.split('').forEach(char => addKey(char, rowDiv));
+                } else {
+                    row.forEach(item => {
+                        if (item.length > 1) {
+                            addKey(item, rowDiv, true);
+                        } else {
+                            item.split('').forEach(char => addKey(char, rowDiv));
+                        }
+                    });
+                }
+                keyboard.appendChild(rowDiv);
+            });
+        }
+
+        function addKey(label, parent, wide = false) {
+            const btn = document.createElement('button');
+            btn.className = 'key' + (wide ? ' wide' : '');
+            btn.textContent = label;
+            btn.onclick = () => handleInput(label);
+            parent.appendChild(btn);
+        }
+
+        function handleInput(key) {
+            if (gameOver) return;
+
+            if (key === 'BACK' || key === 'Backspace') {
+                currentInput = currentInput.slice(0, -1);
+            } else if (key === 'ENTER' || key === 'Enter') {
+                submitWord();
+            } else if (key.length === 1 && /^[A-Z]$/i.test(key)) {
+                if (currentInput.length < puzzle.start.length) {
+                    currentInput += key.toUpperCase();
+                }
+            }
+            renderChain();
+        }
+
+        function submitWord() {
+            if (currentInput.length !== puzzle.start.length) {
+                showMessage("Too short");
+                return;
+            }
+
+            const lastWord = chain[chain.length - 1];
+            let diffs = 0;
+            for (let i = 0; i < lastWord.length; i++) {
+                if (lastWord[i] !== currentInput[i]) diffs++;
+            }
+
+            if (diffs !== 1) {
+                showMessage("Change exactly ONE letter");
+                return;
+            }
+
+            // In a real app, we'd check if currentInput is a valid word
+
+            chain.push(currentInput);
+            if (currentInput === puzzle.goal) {
+                gameOver = true;
+                showMessage("WINNER! Daily Puzzle Solved.");
+            }
+            currentInput = "";
+        }
+
+        function showMessage(msg) {
+            messageDisplay.textContent = msg;
+            setTimeout(() => {
+                if (messageDisplay.textContent === msg) messageDisplay.textContent = '';
+            }, 2000);
+        }
+
+        window.addEventListener('keydown', (e) => handleInput(e.key));
+
+        init();
+
+        // Expose state for verification
+        window.game = {
+            get chain() { return chain; },
+            get puzzle() { return puzzle; },
+            get gameOver() { return gameOver; }
+        };
+    </script>
+</body>
+</html>

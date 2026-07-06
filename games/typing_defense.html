@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typing Defense - Retro Mini Games</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            color: #0f0;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 500px;
+            border: 2px solid #0f0;
+            background: linear-gradient(to right, #000 700px, #111 700px);
+        }
+        canvas {
+            display: block;
+        }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            pointer-events: none;
+        }
+        #current-word {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 32px;
+            background: rgba(0,255,0,0.1);
+            padding: 5px 20px;
+            border-radius: 5px;
+        }
+        #back-link {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: #080;
+            text-decoration: none;
+        }
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        button {
+            background: #0f0;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="500"></canvas>
+        <div id="ui">
+            <div>SCORE: <span id="score">0</span></div>
+            <div>HEALTH: <span id="health">100</span>%</div>
+        </div>
+        <div id="current-word">TYPING...</div>
+        <a href="../index.html" id="back-link">Back to Home</a>
+        <div id="overlay">
+            <h1>TYPING DEFENSE</h1>
+            <p>Type the words before they reach your base!</p>
+            <button onclick="startGame()">START</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score');
+        const healthDisplay = document.getElementById('health');
+        const currentWordDisplay = document.getElementById('current-word');
+        const overlay = document.getElementById('overlay');
+
+        const words = ["CODE", "HTML", "CSS", "GAME", "RETRO", "BYTE", "PIXEL", "LOGIC", "INPUT", "ARRAY", "STRING", "ENGINE", "CANVAS", "SCRIPT", "OBJECT", "BINARY", "KERNEL", "CLIENT", "SERVER", "BACKEND"];
+
+        let score = 0;
+        let health = 100;
+        let enemies = [];
+        let typingBuffer = "";
+        let gameActive = false;
+        let spawnTimer = 0;
+        let spawnRate = 100;
+
+        function startGame() {
+            score = 0;
+            health = 100;
+            enemies = [];
+            typingBuffer = "";
+            gameActive = true;
+            overlay.style.display = 'none';
+            updateUI();
+        }
+
+        function updateUI() {
+            scoreDisplay.textContent = score;
+            healthDisplay.textContent = health;
+            currentWordDisplay.textContent = typingBuffer || "...";
+        }
+
+        class Enemy {
+            constructor() {
+                this.word = words[Math.floor(Math.random() * words.length)];
+                this.x = -100;
+                this.y = 50 + Math.random() * 400;
+                this.speed = 0.5 + Math.random() * 1;
+            }
+
+            update() {
+                this.x += this.speed;
+                if (this.x > 700) {
+                    health -= 10;
+                    return true; // Destroyed
+                }
+                return false;
+            }
+
+            draw() {
+                ctx.fillStyle = '#0f0';
+                ctx.font = '20px Courier New';
+                ctx.fillText(this.word, this.x, this.y);
+
+                // Draw target line
+                ctx.beginPath();
+                ctx.strokeStyle = '#030';
+                ctx.moveTo(this.x, this.y + 5);
+                ctx.lineTo(700, this.y + 5);
+                ctx.stroke();
+            }
+        }
+
+        function handleInput(e) {
+            if (!gameActive) return;
+
+            if (e.key === "Enter" || e.key === " ") {
+                checkWord();
+                typingBuffer = "";
+            } else if (e.key === "Backspace") {
+                typingBuffer = typingBuffer.slice(0, -1);
+            } else if (e.key.length === 1) {
+                typingBuffer += e.key.toUpperCase();
+            }
+            updateUI();
+        }
+
+        function checkWord() {
+            for (let i = 0; i < enemies.length; i++) {
+                if (enemies[i].word === typingBuffer) {
+                    enemies.splice(i, 1);
+                    score += typingBuffer.length * 10;
+                    updateUI();
+                    return;
+                }
+            }
+        }
+
+        function loop() {
+            if (gameActive) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Draw base line
+                ctx.strokeStyle = '#f00';
+                ctx.beginPath();
+                ctx.moveTo(700, 0);
+                ctx.lineTo(700, 500);
+                ctx.stroke();
+
+                spawnTimer++;
+                if (spawnTimer > spawnRate) {
+                    enemies.push(new Enemy());
+                    spawnTimer = 0;
+                    spawnRate = Math.max(30, 100 - Math.floor(score / 200) * 10);
+                }
+
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    if (enemies[i].update()) {
+                        enemies.splice(i, 1);
+                        if (health <= 0) gameOver();
+                    } else {
+                        enemies[i].draw();
+                    }
+                }
+                updateUI();
+            }
+            requestAnimationFrame(loop);
+        }
+
+        function gameOver() {
+            gameActive = false;
+            overlay.style.display = 'flex';
+            overlay.querySelector('h1').textContent = "GAME OVER";
+            overlay.querySelector('p').textContent = `Final Score: ${score}`;
+        }
+
+        window.addEventListener('keydown', handleInput);
+        loop();
+
+        // Expose state for verification
+        window.game = {
+            get score() { return score; },
+            get health() { return health; },
+            get enemies() { return enemies; }
+        };
+    </script>
+</body>
+</html>

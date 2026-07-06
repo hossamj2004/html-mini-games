@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slice the Rope - Retro Mini Games</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #1a1a1a;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+        }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+        }
+        #back-link {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: #888;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            text-align: center;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="ui">
+            <h1>SLICE THE ROPE</h1>
+            <p>Cut the ropes to drop the ball into the blue target!</p>
+        </div>
+        <div id="message">GOAL!</div>
+        <a href="../index.html" id="back-link">Back to Home</a>
+    </div>
+
+    <script>
+        const { Engine, Render, Runner, World, Bodies, Composite, Constraint, MouseConstraint, Mouse, Events } = Matter;
+
+        const engine = Engine.create();
+        const world = engine.world;
+
+        const render = Render.create({
+            element: document.getElementById('game-container'),
+            engine: engine,
+            options: {
+                width: 800,
+                height: 600,
+                wireframes: false,
+                background: '#2c3e50'
+            }
+        });
+
+        Render.run(render);
+        const runner = Runner.create();
+        Runner.run(runner, engine);
+
+        // Create target
+        const target = Bodies.rectangle(400, 550, 100, 20, {
+            isStatic: true,
+            render: { fillStyle: '#3498db' },
+            label: 'target'
+        });
+        World.add(world, target);
+
+        // Create ball
+        const ball = Bodies.circle(400, 100, 20, {
+            density: 0.001,
+            frictionAir: 0.01,
+            render: { fillStyle: '#e74c3c' },
+            label: 'ball'
+        });
+        World.add(world, ball);
+
+        // Create ropes (constraints)
+        const anchor1 = { x: 300, y: 50 };
+        const anchor2 = { x: 500, y: 50 };
+
+        const rope1 = Constraint.create({
+            pointA: anchor1,
+            bodyB: ball,
+            stiffness: 0.1,
+            length: 150,
+            render: { strokeStyle: '#f1c40f', lineWidth: 4 }
+        });
+
+        const rope2 = Constraint.create({
+            pointA: anchor2,
+            bodyB: ball,
+            stiffness: 0.1,
+            length: 150,
+            render: { strokeStyle: '#f1c40f', lineWidth: 4 }
+        });
+
+        World.add(world, [rope1, rope2]);
+
+        // Mouse interaction for slicing
+        const mouse = Mouse.create(render.canvas);
+        const mouseConstraint = MouseConstraint.create(engine, {
+            mouse: mouse,
+            constraint: {
+                stiffness: 0.2,
+                render: { visible: false }
+            }
+        });
+
+        // Slice detection
+        Events.on(mouseConstraint, 'mousedown', function(event) {
+            const pos = event.mouse.position;
+            const constraints = Composite.allConstraints(world);
+
+            constraints.forEach(c => {
+                if (c.label === 'Mouse Constraint') return;
+
+                // Simple distance check from mouse to constraint midpoint for "slicing"
+                const pointA = c.pointA;
+                const pointB = c.bodyB ? c.bodyB.position : c.pointB;
+
+                if (!pointB) return;
+
+                const midX = (pointA.x + pointB.x) / 2;
+                const midY = (pointA.y + pointB.y) / 2;
+
+                const dist = Math.sqrt(Math.pow(pos.x - midX, 2) + Math.pow(pos.y - midY, 2));
+                if (dist < 30) {
+                    World.remove(world, c);
+                }
+            });
+        });
+
+        // Goal detection
+        Events.on(engine, 'collisionStart', function(event) {
+            const pairs = event.pairs;
+            pairs.forEach(pair => {
+                if ((pair.bodyA.label === 'ball' && pair.bodyB.label === 'target') ||
+                    (pair.bodyB.label === 'ball' && pair.bodyA.label === 'target')) {
+                    document.getElementById('message').style.display = 'block';
+                    setTimeout(() => location.reload(), 2000);
+                }
+            });
+        });
+
+        // Boundary check
+        Events.on(engine, 'afterUpdate', function() {
+            if (ball.position.y > 700) {
+                location.reload(); // Restart if ball falls off
+            }
+        });
+
+        // Expose for verification
+        window.game = {
+            engine: engine,
+            ball: ball,
+            target: target
+        };
+    </script>
+</body>
+</html>
