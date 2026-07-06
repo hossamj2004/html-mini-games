@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Color Match Reflex - Retro Mini Games</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #1a1a1a;
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        #game-container {
+            width: 400px;
+            padding: 30px;
+            background-color: #2a2a2a;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        #word-display {
+            font-size: 72px;
+            font-weight: bold;
+            margin: 40px 0;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        #timer-bar-container {
+            width: 100%;
+            height: 10px;
+            background-color: #444;
+            border-radius: 5px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+        #timer-bar {
+            width: 100%;
+            height: 100%;
+            background-color: #00ff00;
+            transition: width 0.1s linear;
+        }
+        .buttons {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+        button {
+            flex: 1;
+            padding: 15px;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.2s;
+        }
+        button:active {
+            transform: scale(0.95);
+        }
+        #match-btn {
+            background-color: #4caf50;
+            color: white;
+        }
+        #no-match-btn {
+            background-color: #f44336;
+            color: white;
+        }
+        #score-display {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.85);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 15px;
+            z-index: 10;
+        }
+        #overlay h2 {
+            font-size: 36px;
+            margin-bottom: 20px;
+        }
+        #start-btn {
+            background-color: #2196f3;
+            color: white;
+            padding: 15px 40px;
+            font-size: 24px;
+        }
+        #back-link {
+            display: inline-block;
+            margin-top: 20px;
+            color: #aaa;
+            text-decoration: none;
+            font-size: 14px;
+        }
+        #back-link:hover {
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="score-display">Score: 0</div>
+        <div id="timer-bar-container">
+            <div id="timer-bar"></div>
+        </div>
+        <div id="word-display">READY?</div>
+        <div class="buttons">
+            <button id="no-match-btn">NO MATCH</button>
+            <button id="match-btn">MATCH</button>
+        </div>
+        <div id="overlay">
+            <h2 id="overlay-text">COLOR MATCH</h2>
+            <button id="start-btn">START</button>
+            <a href="../index.html" id="back-link">Back to Home</a>
+        </div>
+    </div>
+
+    <script>
+        const colors = [
+            { name: 'RED', value: '#f44336' },
+            { name: 'BLUE', value: '#2196f3' },
+            { name: 'GREEN', value: '#4caf50' },
+            { name: 'YELLOW', value: '#ffeb3b' },
+            { name: 'ORANGE', value: '#ff9800' },
+            { name: 'PURPLE', value: '#9c27b0' }
+        ];
+
+        let score = 0;
+        let timeLeft = 1000;
+        let timerInterval;
+        let currentWordIndex;
+        let currentColorIndex;
+        let gameActive = false;
+
+        const wordDisplay = document.getElementById('word-display');
+        const timerBar = document.getElementById('timer-bar');
+        const scoreDisplay = document.getElementById('score-display');
+        const overlay = document.getElementById('overlay');
+        const overlayText = document.getElementById('overlay-text');
+        const startBtn = document.getElementById('start-btn');
+        const matchBtn = document.getElementById('match-btn');
+        const noMatchBtn = document.getElementById('no-match-btn');
+
+        function startGame() {
+            score = 0;
+            gameActive = true;
+            overlay.style.display = 'none';
+            scoreDisplay.textContent = `Score: ${score}`;
+            nextRound();
+        }
+
+        function nextRound() {
+            currentWordIndex = Math.floor(Math.random() * colors.length);
+            // 50% chance of matching
+            if (Math.random() > 0.5) {
+                currentColorIndex = currentWordIndex;
+            } else {
+                currentColorIndex = Math.floor(Math.random() * colors.length);
+            }
+
+            wordDisplay.textContent = colors[currentWordIndex].name;
+            wordDisplay.style.color = colors[currentColorIndex].value;
+
+            timeLeft = Math.max(400, 1000 - (score * 20)); // Speed up as score increases
+            updateTimerBar();
+
+            clearInterval(timerInterval);
+            const startTime = Date.now();
+            const initialTime = timeLeft;
+
+            timerInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const remaining = initialTime - elapsed;
+
+                if (remaining <= 0) {
+                    gameOver("TIME'S UP!");
+                } else {
+                    timeLeft = remaining;
+                    updateTimerBar(remaining / initialTime * 100);
+                }
+            }, 10);
+        }
+
+        function updateTimerBar(percent = 100) {
+            timerBar.style.width = `${percent}%`;
+            if (percent < 30) {
+                timerBar.style.backgroundColor = '#f44336';
+            } else if (percent < 60) {
+                timerBar.style.backgroundColor = '#ffeb3b';
+            } else {
+                timerBar.style.backgroundColor = '#00ff00';
+            }
+        }
+
+        function handleChoice(match) {
+            if (!gameActive) return;
+
+            const isMatch = currentWordIndex === currentColorIndex;
+            if (match === isMatch) {
+                score++;
+                scoreDisplay.textContent = `Score: ${score}`;
+                nextRound();
+            } else {
+                gameOver("WRONG!");
+            }
+        }
+
+        function gameOver(reason) {
+            gameActive = false;
+            clearInterval(timerInterval);
+            overlayText.textContent = reason;
+            startBtn.textContent = 'RESTART';
+            overlay.style.display = 'flex';
+        }
+
+        startBtn.addEventListener('click', startGame);
+        matchBtn.addEventListener('click', () => handleChoice(true));
+        noMatchBtn.addEventListener('click', () => handleChoice(false));
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') handleChoice(false);
+            if (e.key === 'ArrowRight') handleChoice(true);
+            if (e.key === 'Enter' && !gameActive) startGame();
+        });
+
+        // Expose state for verification
+        window.game = {
+            get score() { return score; },
+            get gameActive() { return gameActive; },
+            get currentWord() { return colors[currentWordIndex]?.name; },
+            get currentColor() { return colors[currentColorIndex]?.name; }
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Merge Numbers - Retro Mini Games</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #bbada0;
+            color: #776e65;
+            font-family: "Clear Sans", "Helvetica Neue", Arial, sans-serif;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            width: 350px;
+            padding: 10px;
+            background-color: #bbada0;
+            border-radius: 6px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        #score-container {
+            background-color: #bbada0;
+            padding: 5px 15px;
+            border-radius: 3px;
+            color: white;
+            text-align: center;
+        }
+        #grid {
+            position: relative;
+            width: 320px;
+            height: 400px;
+            background-color: #cdc1b4;
+            border-radius: 6px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 10px;
+            padding: 10px;
+        }
+        .cell {
+            background-color: rgba(238, 228, 218, 0.35);
+            border-radius: 3px;
+            width: 70px;
+            height: 70px;
+        }
+        .tile {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            border-radius: 3px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            font-weight: bold;
+            transition: top 0.15s, left 0.15s, transform 0.1s;
+            z-index: 5;
+        }
+        .tile-2 { background: #eee4da; color: #776e65; }
+        .tile-4 { background: #ede0c8; color: #776e65; }
+        .tile-8 { background: #f2b179; color: #f9f6f2; }
+        .tile-16 { background: #f59563; color: #f9f6f2; }
+        .tile-32 { background: #f67c5f; color: #f9f6f2; }
+        .tile-64 { background: #f65e3b; color: #f9f6f2; }
+        .tile-128 { background: #edcf72; color: #f9f6f2; font-size: 20px; }
+        .tile-256 { background: #edcc61; color: #f9f6f2; font-size: 20px; }
+        .tile-512 { background: #edc850; color: #f9f6f2; font-size: 20px; }
+        .tile-1024 { background: #edc53f; color: #f9f6f2; font-size: 16px; }
+        .tile-2048 { background: #edc22e; color: #f9f6f2; font-size: 16px; }
+
+        :root {
+            --tile-2-bg: #eee4da;
+            --tile-4-bg: #ede0c8;
+            --tile-8-bg: #f2b179;
+            --tile-16-bg: #f59563;
+            --tile-32-bg: #f67c5f;
+            --tile-64-bg: #f65e3b;
+            --tile-128-bg: #edcf72;
+            --tile-256-bg: #edcc61;
+            --tile-512-bg: #edc850;
+            --tile-1024-bg: #edc53f;
+            --tile-2048-bg: #edc22e;
+        }
+
+        #next-tile-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        #next-tile {
+            width: 50px;
+            height: 50px;
+            border-radius: 3px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+        }
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(238, 228, 218, 0.73);
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        #back-link {
+            margin-top: 20px;
+            color: #776e65;
+            text-decoration: none;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div class="header">
+            <h2 style="margin:0">Merge</h2>
+            <div id="score-container">Score<br><span id="score">0</span></div>
+        </div>
+        <div id="grid">
+            <!-- Grid cells for background -->
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+        </div>
+        <div id="next-tile-container">
+            <span>Next:</span>
+            <div id="next-tile"></div>
+            <span style="margin-left:auto">Click Column to Drop</span>
+        </div>
+        <div id="overlay">
+            <h1>Game Over</h1>
+            <button onclick="resetGame()" style="padding:10px 20px; cursor:pointer">Try Again</button>
+            <a href="../index.html" id="back-link">Back to Home</a>
+        </div>
+    </div>
+
+    <script>
+        const gridElement = document.getElementById('grid');
+        const scoreElement = document.getElementById('score');
+        const nextTileElement = document.getElementById('next-tile');
+        const overlay = document.getElementById('overlay');
+
+        const COLS = 4;
+        const ROWS = 5;
+        const CELL_SIZE = 70;
+        const GAP = 10;
+
+        let grid = []; // 2D array [col][row]
+        let score = 0;
+        let nextValue = 2;
+        let isAnimating = false;
+
+        function init() {
+            grid = Array(COLS).fill().map(() => Array(ROWS).fill(null));
+            score = 0;
+            updateScore();
+            generateNextValue();
+            overlay.style.display = 'none';
+        }
+
+        function updateScore() {
+            scoreElement.textContent = score;
+        }
+
+        function generateNextValue() {
+            const r = Math.random();
+            if (r > 0.9) nextValue = 8;
+            else if (r > 0.7) nextValue = 4;
+            else nextValue = 2;
+
+            nextTileElement.textContent = nextValue;
+            nextTileElement.className = `tile-${nextValue}`;
+            nextTileElement.style.backgroundColor = getComputedStyle(document.documentElement).getPropertyValue(`--tile-${nextValue}-bg`);
+        }
+
+        function dropTile(col) {
+            if (isAnimating || grid[col][0] !== null) return;
+
+            isAnimating = true;
+            let targetRow = -1;
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (grid[col][r] === null) {
+                    targetRow = r;
+                    break;
+                }
+            }
+
+            if (targetRow === -1) {
+                isAnimating = false;
+                return;
+            }
+
+            const tile = {
+                value: nextValue,
+                element: document.createElement('div'),
+                col: col,
+                row: targetRow
+            };
+
+            tile.element.className = `tile tile-${tile.value}`;
+            tile.element.textContent = tile.value;
+            tile.element.style.left = `${col * (CELL_SIZE + GAP) + GAP}px`;
+            tile.element.style.top = `0px`;
+            gridElement.appendChild(tile.element);
+
+            // Animate drop
+            setTimeout(() => {
+                tile.element.style.top = `${targetRow * (CELL_SIZE + GAP) + GAP}px`;
+                grid[col][targetRow] = tile;
+
+                setTimeout(() => {
+                    checkMerges(col, targetRow);
+                }, 150);
+            }, 10);
+
+            generateNextValue();
+        }
+
+        async function checkMerges(col, row) {
+            const tile = grid[col][row];
+            if (!tile) {
+                isAnimating = false;
+                return;
+            }
+
+            const neighbors = [
+                {c: col, r: row + 1}, // Down
+                {c: col - 1, r: row}, // Left
+                {c: col + 1, r: row}  // Right
+            ];
+
+            let merged = false;
+            for (let n of neighbors) {
+                if (n.c >= 0 && n.c < COLS && n.r >= 0 && n.r < ROWS) {
+                    const other = grid[n.c][n.r];
+                    if (other && other.value === tile.value) {
+                        // Merge!
+                        score += tile.value * 2;
+                        updateScore();
+
+                        // Move this tile to the other
+                        tile.element.style.left = `${n.c * (CELL_SIZE + GAP) + GAP}px`;
+                        tile.element.style.top = `${n.r * (CELL_SIZE + GAP) + GAP}px`;
+                        tile.element.style.transform = 'scale(1.1)';
+
+                        grid[col][row] = null;
+
+                        await new Promise(r => setTimeout(r, 150));
+
+                        other.value *= 2;
+                        other.element.textContent = other.value;
+                        other.element.className = `tile tile-${other.value}`;
+                        gridElement.removeChild(tile.element);
+
+                        // After merge, let tiles above fall
+                        await fallAbove(col, row);
+
+                        // Recursive check for the merged tile
+                        await checkMerges(n.c, n.r);
+                        merged = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!merged) {
+                isAnimating = false;
+                if (checkGameOver()) {
+                    overlay.style.display = 'flex';
+                }
+            }
+        }
+
+        async function fallAbove(col, emptyRow) {
+            for (let r = emptyRow - 1; r >= 0; r--) {
+                const tile = grid[col][r];
+                if (tile) {
+                    grid[col][r + 1] = tile;
+                    grid[col][r] = null;
+                    tile.row = r + 1;
+                    tile.element.style.top = `${(r + 1) * (CELL_SIZE + GAP) + GAP}px`;
+                }
+            }
+            await new Promise(r => setTimeout(r, 150));
+        }
+
+        function checkGameOver() {
+            for (let c = 0; c < COLS; c++) {
+                if (grid[c][0] === null) return false;
+            }
+            return true;
+        }
+
+        function resetGame() {
+            gridElement.querySelectorAll('.tile').forEach(t => t.remove());
+            init();
+        }
+
+        gridElement.addEventListener('mousedown', (e) => {
+            const rect = gridElement.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const col = Math.floor(x / (rect.width / COLS));
+            if (col >= 0 && col < COLS) dropTile(col);
+        });
+
+        init();
+
+        // Expose state for verification
+        window.game = {
+            get score() { return score; },
+            get grid() { return grid; },
+            get isAnimating() { return isAnimating; }
+        };
+    </script>
+</body>
+</html>

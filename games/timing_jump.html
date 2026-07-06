@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>One-Tap Timing Jump - Retro Mini Games</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #222;
+            color: #fff;
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 400px;
+            background-color: #333;
+            border: 4px solid #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        canvas {
+            display: block;
+        }
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        #score-board {
+            font-size: 24px;
+            text-shadow: 2px 2px #000;
+        }
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            font-size: 32px;
+            text-shadow: 2px 2px #000;
+        }
+        #back-link {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            color: #aaa;
+            text-decoration: none;
+            font-size: 14px;
+            pointer-events: auto;
+        }
+        #back-link:hover {
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <div id="ui-layer">
+            <div id="score-board">Score: 0 | High: 0</div>
+            <div id="message">TAP TO START</div>
+            <a href="../index.html" id="back-link">Back to Home</a>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreBoard = document.getElementById('score-board');
+        const message = document.getElementById('message');
+
+        let gameState = 'START'; // START, PLAYING, GAMEOVER
+        let score = 0;
+        let highScore = localStorage.getItem('timingJumpHighScore') || 0;
+
+        const player = {
+            x: 100,
+            y: 300,
+            width: 40,
+            height: 40,
+            dy: 0,
+            jumpForce: -12,
+            gravity: 0.6,
+            grounded: true,
+            color: '#0f0'
+        };
+
+        let obstacles = [];
+        let gameSpeed = 5;
+        let frameCount = 0;
+        let spawnRate = 90;
+
+        function resetGame() {
+            score = 0;
+            player.y = 300;
+            player.dy = 0;
+            player.grounded = true;
+            obstacles = [];
+            gameSpeed = 5;
+            frameCount = 0;
+            spawnRate = 90;
+            updateScoreBoard();
+        }
+
+        function updateScoreBoard() {
+            scoreBoard.textContent = `Score: ${Math.floor(score)} | High: ${highScore}`;
+        }
+
+        function jump() {
+            if (player.grounded) {
+                player.dy = player.jumpForce;
+                player.grounded = false;
+            }
+        }
+
+        function handleInput() {
+            if (gameState === 'START') {
+                gameState = 'PLAYING';
+                message.style.display = 'none';
+                resetGame();
+            } else if (gameState === 'PLAYING') {
+                jump();
+            } else if (gameState === 'GAMEOVER') {
+                gameState = 'PLAYING';
+                message.style.display = 'none';
+                resetGame();
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' || e.code === 'ArrowUp') {
+                handleInput();
+            }
+        });
+
+        canvas.addEventListener('mousedown', handleInput);
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleInput();
+        });
+
+        function spawnObstacle() {
+            const height = 30 + Math.random() * 40;
+            const width = 20 + Math.random() * 30;
+            obstacles.push({
+                x: canvas.width,
+                y: canvas.height - height - 60, // 60 is ground level
+                width: width,
+                height: height,
+                color: '#f00'
+            });
+        }
+
+        function update() {
+            if (gameState !== 'PLAYING') return;
+
+            frameCount++;
+            score += 0.1;
+            updateScoreBoard();
+
+            // Player physics
+            player.dy += player.gravity;
+            player.y += player.dy;
+
+            const groundY = canvas.height - player.height - 60;
+            if (player.y > groundY) {
+                player.y = groundY;
+                player.dy = 0;
+                player.grounded = true;
+            }
+
+            // Game speed increase
+            if (frameCount % 500 === 0) {
+                gameSpeed += 0.5;
+                spawnRate = Math.max(40, spawnRate - 5);
+            }
+
+            // Obstacles
+            if (frameCount % Math.floor(spawnRate) === 0) {
+                spawnObstacle();
+            }
+
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obs = obstacles[i];
+                obs.x -= gameSpeed;
+
+                // Collision detection
+                if (
+                    player.x < obs.x + obs.width &&
+                    player.x + player.width > obs.x &&
+                    player.y < obs.y + obs.height &&
+                    player.y + player.height > obs.y
+                ) {
+                    gameOver();
+                }
+
+                if (obs.x + obs.width < 0) {
+                    obstacles.splice(i, 1);
+                }
+            }
+        }
+
+        function gameOver() {
+            gameState = 'GAMEOVER';
+            message.innerHTML = `GAME OVER<br>Score: ${Math.floor(score)}<br>TAP TO RESTART`;
+            message.style.display = 'block';
+            if (score > highScore) {
+                highScore = Math.floor(score);
+                localStorage.setItem('timingJumpHighScore', highScore);
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Ground
+            ctx.fillStyle = '#555';
+            ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
+            ctx.strokeStyle = '#fff';
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - 60);
+            ctx.lineTo(canvas.width, canvas.height - 60);
+            ctx.stroke();
+
+            // Player
+            ctx.fillStyle = player.color;
+            ctx.fillRect(player.x, player.y, player.width, player.height);
+            ctx.strokeStyle = '#fff';
+            ctx.strokeRect(player.x, player.y, player.width, player.height);
+
+            // Obstacles
+            obstacles.forEach(obs => {
+                ctx.fillStyle = obs.color;
+                ctx.fillRect(obs.x, obs.y, obs.width, obs.height);
+                ctx.strokeStyle = '#fff';
+                ctx.strokeRect(obs.x, obs.y, obs.width, obs.height);
+            });
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        updateScoreBoard();
+        loop();
+
+        // Expose state for verification
+        window.game = {
+            get score() { return Math.floor(score); },
+            get gameState() { return gameState; },
+            get player() { return player; },
+            get obstacles() { return obstacles; }
+        };
+    </script>
+</body>
+</html>
